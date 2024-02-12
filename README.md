@@ -1,5 +1,6 @@
 ### 下载须知:
 这是Geyser的非官方版本，旨在恢复了不安全的mojang账号登录功能以提供Authlib-injector支持，该Repo使用GitHub Action与Upstream每日定时同步以保证源代码最新，但由于Action的限制，不能做到同步代码后自动构建，需要更新可以自行clone编译或者踢我一下来开一个Action的手动构建。我自己也是服主，所以一般基岩协议版本更新的时候我都会在那构建一下。  
+pr build是否可用？
 
 This is the unofficial version of Geyser. It aims to revert the insecure function of mojang account login which gives you access to inject authlib. This repo uses GitHub Action to keep up-todate with the upstream everyday, however, due to the action's limit, it cannot automatically build after syncing the source code. If you need update, you can clone it and build by yourself or inform me to launch a workflow dispatch. Me myself am a server owner and whenever the bedrock protocol updates I will build it on action.
 
