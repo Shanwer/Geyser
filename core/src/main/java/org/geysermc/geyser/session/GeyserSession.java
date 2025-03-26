@@ -96,7 +96,7 @@ import org.cloudburstmc.protocol.bedrock.packet.EmoteListPacket;
 import org.cloudburstmc.protocol.bedrock.packet.GameRulesChangedPacket;
 import org.cloudburstmc.protocol.bedrock.packet.ItemComponentPacket;
 import org.cloudburstmc.protocol.bedrock.packet.LevelEventPacket;
-import org.cloudburstmc.protocol.bedrock.packet.LevelSoundEvent2Packet;
+import org.cloudburstmc.protocol.bedrock.packet.LevelSoundEventPacket;
 import org.cloudburstmc.protocol.bedrock.packet.PlayStatusPacket;
 import org.cloudburstmc.protocol.bedrock.packet.SetCommandsEnabledPacket;
 import org.cloudburstmc.protocol.bedrock.packet.SetTimePacket;
@@ -1986,7 +1986,7 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
     }
 
     public void playSoundEvent(SoundEvent sound, Vector3f position) {
-        LevelSoundEvent2Packet packet = new LevelSoundEvent2Packet();
+        LevelSoundEventPacket packet = new LevelSoundEventPacket();
         packet.setPosition(position);
         packet.setSound(sound);
         packet.setIdentifier(":");
