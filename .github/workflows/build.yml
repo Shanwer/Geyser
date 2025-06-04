@@ -21,6 +21,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+
+      - uses: actions/checkout@v4
+
+      - uses: runsascoded/update-submodules@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+    
       - name: Get Release Info
         id: release-info
         uses: GeyserMC/actions/previous-release@master
