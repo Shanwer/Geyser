@@ -46,10 +46,11 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
-import net.raphimc.minecraftauth.responsehandler.exception.MinecraftRequestException;
-import net.raphimc.minecraftauth.step.java.StepMCProfile;
-import net.raphimc.minecraftauth.step.java.StepMCToken;
-import net.raphimc.minecraftauth.step.java.session.StepFullJavaSession;
+import net.raphimc.minecraftauth.java.JavaAuthManager;
+import net.raphimc.minecraftauth.java.exception.MinecraftProfileNotFoundException;
+import net.raphimc.minecraftauth.java.model.MinecraftProfile;
+import net.raphimc.minecraftauth.java.model.MinecraftToken;
+import net.raphimc.minecraftauth.util.MinecraftAuth4To5Migrator;
 import org.checkerframework.checker.index.qual.NonNegative;
 import org.checkerframework.checker.index.qual.Positive;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -118,7 +119,6 @@ import org.geysermc.cumulus.form.util.FormBuilder;
 import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.api.bedrock.camera.CameraData;
 import org.geysermc.geyser.api.bedrock.camera.CameraShake;
-import org.geysermc.geyser.input.InputLocksFlag;
 import org.geysermc.geyser.api.connection.GeyserConnection;
 import org.geysermc.geyser.api.entity.EntityData;
 import org.geysermc.geyser.api.entity.type.GeyserEntity;
@@ -148,6 +148,7 @@ import org.geysermc.geyser.erosion.GeyserboundHandshakePacketHandler;
 import org.geysermc.geyser.event.type.SessionDisconnectEventImpl;
 import org.geysermc.geyser.impl.camera.CameraDefinitions;
 import org.geysermc.geyser.impl.camera.GeyserCameraData;
+import org.geysermc.geyser.input.InputLocksFlag;
 import org.geysermc.geyser.inventory.Inventory;
 import org.geysermc.geyser.inventory.InventoryHolder;
 import org.geysermc.geyser.inventory.LecternContainer;
@@ -201,7 +202,6 @@ import org.geysermc.geyser.util.EntityUtils;
 import org.geysermc.geyser.util.InventoryUtils;
 import org.geysermc.geyser.util.LoginEncryptionUtils;
 import org.geysermc.geyser.util.MathUtils;
-import org.geysermc.geyser.util.MinecraftAuthLogger;
 import org.geysermc.mcprotocollib.auth.GameProfile;
 import org.geysermc.mcprotocollib.network.BuiltinFlags;
 import org.geysermc.mcprotocollib.network.ClientSession;
@@ -640,6 +640,7 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
     /**
      * If the current player is flying
      */
+    @Setter
     private boolean flying = false;
 
     /**
@@ -977,23 +978,28 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
         loggingIn = true;
 
         CompletableFuture.supplyAsync(() -> {
-            StepFullJavaSession step = PendingMicrosoftAuthentication.AUTH_FLOW.apply(true, 30);
-            StepFullJavaSession.FullJavaSession response;
+            JavaAuthManager authManager;
+            MinecraftProfile mcProfile;
+            MinecraftToken mcToken;
             try {
-                response = step.refresh(MinecraftAuthLogger.INSTANCE, PendingMicrosoftAuthentication.AUTH_CLIENT, step.fromJson(GSON.fromJson(authChain, JsonObject.class)));
+                JsonObject parsedAuthChain = GSON.fromJson(authChain, JsonObject.class);
+                if (parsedAuthChain.has("mcProfile")) { // Old Minecraft v4 auth chain
+                    parsedAuthChain = MinecraftAuth4To5Migrator.migrateJavaSave(parsedAuthChain, GeyserImpl.OAUTH_CONFIG);
+                }
+
+                authManager = JavaAuthManager.fromJson(PendingMicrosoftAuthentication.AUTH_CLIENT, parsedAuthChain);
+                mcProfile = authManager.getMinecraftProfile().getUpToDate();
+                mcToken = authManager.getMinecraftToken().getUpToDate();
             } catch (Exception e) {
                 geyser.getLogger().error("Error while attempting to use auth chain for " + bedrockUsername() + "!", e);
                 return Boolean.FALSE;
             }
 
-            StepMCProfile.MCProfile mcProfile = response.getMcProfile();
-            StepMCToken.MCToken mcToken = mcProfile.getMcToken();
-
             protocol = new MinecraftProtocol(
                 new GameProfile(mcProfile.getId(), mcProfile.getName()),
-                mcToken.getAccessToken()
+                mcToken.getToken()
             );
-            geyser.saveAuthChain(bedrockUsername(), GSON.toJson(step.toJson(response)));
+            geyser.saveAuthChain(bedrockUsername(), GSON.toJson(JavaAuthManager.toJson(authManager)));
             return Boolean.TRUE;
         }).whenComplete((successful, ex) -> {
             if (this.closed) {
@@ -1061,9 +1067,7 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
         return task.getAuthentication().handle((result, ex) -> {
             if (ex != null) {
                 geyser.getLogger().error("Failed to log in with Microsoft code!", ex);
-                if (ex instanceof CompletionException ce
-                    && ce.getCause() instanceof MinecraftRequestException mre
-                    && mre.getResponse().getStatusCode() == 404) {
+                if (ex instanceof CompletionException ce && ce.getCause() instanceof MinecraftProfileNotFoundException) {
                     // Player is trying to join with a Microsoft account that doesn't have Java Edition purchased
                     disconnect(GeyserLocale.getPlayerLocaleString("geyser.network.remote.invalid_account", locale()));
                 } else {
@@ -1072,12 +1076,12 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
                 return false;
             }
 
-            StepMCProfile.MCProfile mcProfile = result.session().getMcProfile();
-            StepMCToken.MCToken mcToken = mcProfile.getMcToken();
+            MinecraftProfile mcProfile = result.getMinecraftProfile().getCached();
+            MinecraftToken mcToken = result.getMinecraftToken().getCached();
 
             this.protocol = new MinecraftProtocol(
                 new GameProfile(mcProfile.getId(), mcProfile.getName()),
-                mcToken.getAccessToken()
+                mcToken.getToken()
             );
 
             try {
@@ -1088,7 +1092,7 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
             }
 
             // Save our auth chain for later use
-            geyser.saveAuthChain(bedrockUsername(), GSON.toJson(result.step().toJson(result.session())));
+            geyser.saveAuthChain(bedrockUsername(), GSON.toJson(JavaAuthManager.toJson(result)));
             return true;
         }).getNow(false);
     }
@@ -1373,26 +1377,13 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
 
     public void stopSneaking(boolean updateMetaData) {
         disableBlocking();
-
         setSneaking(false, updateMetaData);
-    }
-
-    public void setSpinAttack(boolean spinAttack) {
-        switchPose(spinAttack, EntityFlag.DAMAGE_NEARBY_MOBS, Pose.SPIN_ATTACK);
-    }
-
-    public void setGliding(boolean gliding) {
-        switchPose(gliding, EntityFlag.GLIDING, Pose.FALL_FLYING);
     }
 
     private void setSneaking(boolean sneaking, boolean update) {
         this.sneaking = sneaking;
 
-        // Update pose and bounding box on our end
-        if (!flying) {
-            // The pose and bounding box should not be updated if the player is flying
-            setSneakingPose(sneaking);
-        }
+        playerEntity.setFlag(EntityFlag.SNEAKING, sneaking);
         collisionManager.updateScaffoldingFlags(false);
 
         if (update) {
@@ -1405,38 +1396,6 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
         }
     }
 
-    private void setSneakingPose(boolean sneaking) {
-        if (this.pose == Pose.SNEAKING && !sneaking) {
-            this.pose = Pose.STANDING;
-            playerEntity.setBoundingBoxHeight(playerEntity.getDefinition().height());
-        } else if (sneaking) {
-            this.pose = Pose.SNEAKING;
-            playerEntity.setBoundingBoxHeight(1.5f);
-        }
-        playerEntity.setFlag(EntityFlag.SNEAKING, sneaking);
-    }
-
-    public void setSwimming(boolean swimming) {
-        if (!swimming && playerEntity.getFlag(EntityFlag.CRAWLING)) {
-            // Do not update bounding box.
-            playerEntity.setFlag(EntityFlag.SWIMMING, false);
-            playerEntity.updateBedrockMetadata();
-            return;
-        }
-        switchPose(swimming, EntityFlag.SWIMMING, Pose.SWIMMING);
-    }
-
-    public void setCrawling(boolean crawling) {
-        switchPose(crawling, EntityFlag.CRAWLING, Pose.SWIMMING);
-    }
-
-    private void switchPose(boolean value, EntityFlag flag, Pose pose) {
-        this.pose = value ? pose : this.pose == pose ? Pose.STANDING : this.pose;
-        playerEntity.setDimensionsFromPose(this.pose);
-        playerEntity.setFlag(flag, value);
-        playerEntity.updateBedrockMetadata();
-    }
-
     public void setNoClip(boolean noClip) {
         if (this.noClip == noClip) {
             return;
@@ -1444,16 +1403,6 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
 
         this.noClip = noClip;
         this.sendAdventureSettings();
-    }
-
-    public void setFlying(boolean flying) {
-        this.flying = flying;
-
-        if (sneaking) {
-            // update bounding box as it is not reduced when flying
-            setSneakingPose(!flying);
-            playerEntity.updateBedrockMetadata();
-        }
     }
 
     public void setGameMode(GameMode newGamemode) {
@@ -2281,7 +2230,7 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
     }
 
     public float getEyeHeight() {
-        return switch (pose) {
+        return switch (this.pose) {
             case SNEAKING -> 1.27f;
             case SWIMMING,
                  FALL_FLYING, // Elytra
