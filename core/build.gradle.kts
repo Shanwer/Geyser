@@ -14,9 +14,15 @@ dependencies {
     api(projects.common)
     api(projects.api)
 
-    // Jackson JSON and YAML serialization
-    api(libs.bundles.jackson)
+    api(libs.yaml) // Used for extensions
+    annotationProcessor(libs.configurate.`interface`.ap)
+    api(libs.configurate.`interface`)
+    implementation(libs.configurate.yaml)
     api(libs.guava)
+
+    compileOnly(libs.gson.record.factory) {
+        isTransitive = false
+    }
 
     // Fastutil Maps
     implementation(libs.bundles.fastutil)
@@ -24,8 +30,13 @@ dependencies {
     // Network libraries
     implementation(libs.websocket)
 
-    api(libs.bundles.protocol)
+    api(libs.bundles.protocol) {
+        exclude("com.fasterxml.jackson.core", "jackson-annotations")
+    }
 
+    api(libs.minecraftauth) {
+        exclude("com.google.code.gson", "gson")
+    }
     api(libs.mcauthlib)
     api(libs.minecraftauth)
     api(libs.mcprotocollib) {
@@ -63,6 +74,7 @@ dependencies {
 
     // Test
     testImplementation(libs.junit)
+    testImplementation(libs.gson.runtime) // Record support
     testImplementation(libs.mockito)
 
     // Annotation Processors
@@ -71,6 +83,8 @@ dependencies {
     annotationProcessor(projects.ap)
 
     api(libs.events)
+
+    api(libs.bstats)
 }
 
 tasks.processResources {
