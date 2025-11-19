@@ -194,6 +194,10 @@ public interface GeyserConfig {
         void authType(AuthType authType);
         boolean forwardHostname();
 
+        @Comment("Enable password authentication for authlib-injector injection, as it is a fork of Geyser, this is automatically enabled.")
+        @DefaultBoolean(true)
+        boolean isPasswordAuthentication();
+
         @Override
         @Exclude
         default String minecraftVersion() {

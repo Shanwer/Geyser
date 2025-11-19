@@ -41,7 +41,7 @@ import org.geysermc.cumulus.response.SimpleFormResponse;
 import org.geysermc.cumulus.response.result.FormResponseResult;
 import org.geysermc.cumulus.response.result.ValidFormResponseResult;
 import org.geysermc.geyser.GeyserImpl;
-import org.geysermc.geyser.configuration.GeyserConfiguration;
+import org.geysermc.geyser.configuration.GeyserConfig;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.session.auth.AuthData;
 import org.geysermc.geyser.session.auth.BedrockClientData;
@@ -143,8 +143,8 @@ public class LoginEncryptionUtils {
         // Set DoDaylightCycle to false so the time doesn't accelerate while we're here
         session.setDaylightCycle(false);
 
-        GeyserConfiguration config = session.getGeyser().getConfig();
-        boolean isPasswordAuthEnabled = config.getRemote().isPasswordAuthentication();
+        GeyserConfig config = session.getGeyser().config();
+        boolean isPasswordAuthEnabled = config.java().isPasswordAuthentication();
 
         session.sendForm(
                 SimpleForm.builder()
