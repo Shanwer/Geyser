@@ -27,6 +27,11 @@ dependencies {
     shadow(libs.raknet)
     shadow(libs.mcprotocollib)
 
+    // Shade + relocate configurate as we're using a fork
+    shadowBundle(libs.configurate.`interface`)
+    shadowBundle(libs.configurate.yaml)
+    shadowBundle(libs.configurate.core)
+
     // Since we also relocate cloudburst protocol: shade erosion common
     shadowBundle(libs.erosion.common)
 
@@ -45,6 +50,7 @@ tasks.withType<Jar> {
 
 relocate("org.cloudburstmc.netty")
 relocate("org.cloudburstmc.protocol")
+relocate("org.spongepowered.configurate")
 
 tasks {
     remapJar {
@@ -53,6 +59,10 @@ tasks {
 
     remapModrinthJar {
         archiveBaseName.set("geyser-fabric")
+    }
+
+    shadowJar {
+        mergeServiceFiles()
     }
 }
 
