@@ -1,6 +1,8 @@
 name: Build
 
 on:
+  schedule:
+    - cron: '15 12 * * *'   # 2026.1.15: 12点15分自动运行，比同步上游迟了十五分钟
   workflow_dispatch:
   push:
     branches-ignore:
