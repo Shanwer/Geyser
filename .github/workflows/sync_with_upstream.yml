@@ -1,10 +1,9 @@
 name: Sync with Upstream
 
 on:
-  # schedule:
-  #   - cron: '0 0 * * *'
+  schedule:
+    - cron: '0 12 * * *'  # 2025.1.15: 增加12点自动运行
   workflow_dispatch:
-  workflow_call:  # 2026.1.15: 被 build.yml 调用后执行
 
 permissions:
   contents: write  # 2026.1.15: 允许写入
