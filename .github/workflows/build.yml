@@ -1,8 +1,10 @@
 name: Build
 
 on:
-  schedule:
-    - cron: '15 12 * * *'   # 2026.1.15: 12点15分自动运行，比同步上游迟了十五分钟
+  workflow_run:
+    workflows: ["Sync with Upstream"]  # 2026.1.15: 监听同步上游完成后运行
+    types:
+      - completed
   workflow_dispatch:
   push:
     branches-ignore:
@@ -22,6 +24,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}  # 2026.1.15: 上游完成且成功才运行
     steps:
       - name: Get Release Info
         id: release-info
