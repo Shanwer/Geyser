@@ -2,7 +2,7 @@ name: Sync with Upstream
 
 on:
   schedule:
-    - cron: '0 12 * * *'  # 2025.1.15: 增加12点自动运行
+    - cron: '0 4 * * *'  # 2025.1.15: 北京时间12点自动运行
   workflow_dispatch:
 
 permissions:
