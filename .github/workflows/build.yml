@@ -2,7 +2,7 @@ name: Build
 
 on:
   workflow_run:
-    workflows: ["Sync with Upstream"]  # 2026.1.15: 监听同步上游完成后运行
+    workflows: ["Sync with Upstream"]  # 监听同步上游完成后运行
     types: ["completed"]
   workflow_dispatch:
   push:
@@ -23,7 +23,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}  # 2026.1.15: 上游完成且成功才运行
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}  # 上游完成且成功才运行
     steps:
       - name: Get Release Info
         id: release-info
