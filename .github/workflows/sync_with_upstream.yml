@@ -2,11 +2,11 @@ name: Sync with Upstream
 
 on:
   schedule:
-    - cron: '0 4 * * *'
+    - cron: '0 0 * * *'
   workflow_dispatch:
 
 permissions:
-  contents: write  # 2026.1.15: 允许写入
+  contents: write  # 允许写入
 
 jobs:
   sync:
