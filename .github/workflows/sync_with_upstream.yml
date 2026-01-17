@@ -2,7 +2,7 @@ name: Sync with Upstream
 
 on:
   schedule:
-    - cron: '0 4 * * *'  # 2025.1.15: 北京时间12点自动运行
+    - cron: '0 4 * * *'
   workflow_dispatch:
 
 permissions:
@@ -20,10 +20,6 @@ jobs:
 
     - name: Configure Git
       run: |
-        # git config user.name 'Shanwer'
-        # git config user.email 'Shanwer@qq.com'
-        
-        # 2026.1.15: 提交用户改为 github-actions[bot]
         git config user.name 'github-actions[bot]'
         git config user.email 'github-actions[bot]@users.noreply.github.com'
 
