@@ -1,7 +1,8 @@
-### 下载须知:
-这是Geyser的非官方版本，旨在恢复了不安全的mojang账号登录功能以提供Authlib-injector支持，该Repo使用GitHub Action与Upstream每日定时同步以保证源代码最新，但由于Action的限制，不能做到同步代码后自动构建，需要更新可以自行clone编译或者踢我一下来开一个Action的手动构建。我自己也是服主，所以一般基岩协议版本更新的时候我都会在那构建一下。  
+### 关于本仓库
+这是 Geyser 的非官方版本。本版本恢复了被 Geyser 官方移除的 Mojang 账号登录功能。Mojang 账号登录功能是提供 Authlib-injector 功能所必须的。本仓库使用 GitHub Action 进行自动同步、合并上游，以保证源代码跟进上游代码，并自动构建。构建于每日正午（12点）生成在 [Build](https://github.com/NiuexDev/tbc-Geyser-with-mojang-login-build/actions/workflows/build.yml) Workflow 中。
 
-This is the unofficial version of Geyser. It aims to revert the insecure function of mojang account login which gives you access to inject authlib. This repo uses GitHub Action to keep up-todate with the upstream everyday, however, due to the action's limit, it cannot automatically build after syncing the source code. If you need update, you can clone it and build by yourself or inform me to launch a workflow dispatch. Me myself am a server owner and whenever the bedrock protocol updates I will build it on action.
+#### About this repository
+This is an unofficial version of Geyser. It restores the Mojang account login feature removed by the official repository, which is essential for Authlib-injector support. This repository uses GitHub Actions to automatically sync and merge with the upstream daily, ensuring the source code stays up-to-date. Automated builds are generated every day at 12:00 PM in the [Build](https://github.com/NiuexDev/tbc-Geyser-with-mojang-login-build/actions/workflows/build.yml) workflow.
 
 <img src="https://geysermc.org/img/geyser-1760-860.png" alt="Geyser" width="600"/>
 

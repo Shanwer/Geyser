@@ -5,6 +5,9 @@ on:
     - cron: '0 0 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: write  # 允许写入
+
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -17,14 +20,23 @@ jobs:
 
     - name: Configure Git
       run: |
-        git config user.name 'Shanwer'
-        git config user.email 'Shanwer@qq.com'
+        git config user.name 'github-actions[bot]'
+        git config user.email 'github-actions[bot]@users.noreply.github.com'
 
     - name: Add upstream remote
       run: git remote add upstream https://github.com/GeyserMC/Geyser.git
 
     - name: Fetch upstream changes
       run: git fetch upstream
+
+    - name: Check for updates
+      run: |
+        UPSTREAM_SHA=$(git rev-parse upstream/master)
+        LOCAL_SHA=$(git rev-parse HEAD)
+        if [ "$LOCAL_SHA" == "$UPSTREAM_SHA" ]; then
+          echo "No changes detected."
+          exit 1
+        fi
 
     - name: Merge upstream changes
       run: |
