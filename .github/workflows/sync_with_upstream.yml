@@ -29,6 +29,15 @@ jobs:
     - name: Fetch upstream changes
       run: git fetch upstream
 
+    - name: Check for updates
+      run: |
+        UPSTREAM_SHA=$(git rev-parse upstream/master)
+        LOCAL_SHA=$(git rev-parse HEAD)
+        if [ "$LOCAL_SHA" == "$UPSTREAM_SHA" ]; then
+          echo "No changes detected."
+          exit 1
+        fi
+
     - name: Merge upstream changes
       run: |
         git merge upstream/master || {
