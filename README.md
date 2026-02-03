@@ -1,5 +1,5 @@
 ### 关于本仓库
-这是 Geyser 的非官方版本。本版本恢复了被 Geyser 官方移除的 Mojang 账号登录功能。Mojang 账号登录功能是提供 Authlib-injector 功能所必须的。本仓库使用 GitHub Action 进行自动同步、合并上游，以保证源代码跟进上游代码，并自动构建。构建于每日正午（12点）生成在 [Build](https://github.com/NiuexDev/tbc-Geyser-with-mojang-login-build/actions/workflows/build.yml) Workflow 中。
+这是 Geyser 的非官方版本。本版本恢复了被 Geyser 官方移除的 Mojang 账号登录功能。Mojang 账号登录功能是提供 Authlib-injector 功能所必须的。本仓库使用 GitHub Action 进行自动同步、合并上游，以保证源代码跟进上游代码，并自动构建。构建于每日正午（12点）生成在 [Build](https://github.com/Shanwer/Geyser/actions/workflows/build.yml) Workflow 中。
 
 #### About this repository
 This is an unofficial version of Geyser. It restores the Mojang account login feature removed by the official repository, which is essential for Authlib-injector support. This repository uses GitHub Actions to automatically sync and merge with the upstream daily, ensuring the source code stays up-to-date. Automated builds are generated every day at 12:00 PM in the [Build](https://github.com/NiuexDev/tbc-Geyser-with-mojang-login-build/actions/workflows/build.yml) workflow.
