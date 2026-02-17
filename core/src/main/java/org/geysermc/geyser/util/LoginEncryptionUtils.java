@@ -78,7 +78,7 @@ public class LoginEncryptionUtils {
             long issuedAt = rawIssuedAt != null ? rawIssuedAt : -1;
 
             IdentityData extraData = result.identityClaims().extraData;
-            session.setAuthData(new AuthData(extraData.displayName, extraData.identity, extraData.xuid, issuedAt));
+            session.setAuthData(new AuthData(extraData.displayName, extraData.identity, extraData.xuid, issuedAt, extraData.minecraftId));
             if (authPayload instanceof TokenPayload tokenPayload) {
                 session.setToken(tokenPayload.getToken());
             } else if (authPayload instanceof CertificateChainPayload certificateChainPayload) {
