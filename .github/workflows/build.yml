@@ -28,6 +28,13 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}  # 上游完成且成功才运行
     steps:
+
+      - uses: actions/checkout@v4
+
+      - uses: runsascoded/update-submodules@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+    
       - name: Get Release Info
         id: release-info
         uses: GeyserMC/actions/previous-release@master
