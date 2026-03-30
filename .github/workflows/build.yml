@@ -26,7 +26,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}  # 上游完成且成功才运行
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }} # 当 sync with upstream 执行成功时自动执行，或在每次 push 触发与手动触发时执行
     steps:
       - name: Get Release Info
         id: release-info
