@@ -172,7 +172,7 @@ val generateGitProperties = tasks.register("generateGitProperties") {
         gitPropertiesMap.forEach { (key, provider) ->
             props[key] = provider.get()
         }
-        
+
         generatedPropsFile.get().asFile.apply {
             parentFile.mkdirs()
             writer().use { props.store(it, null) }
