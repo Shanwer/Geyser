@@ -149,6 +149,7 @@ import org.geysermc.geyser.event.type.SessionDisconnectEventImpl;
 import org.geysermc.geyser.impl.camera.CameraDefinitions;
 import org.geysermc.geyser.impl.camera.GeyserCameraData;
 import org.geysermc.geyser.input.InputLocksFlag;
+import org.geysermc.geyser.inventory.GeyserItemStack;
 import org.geysermc.geyser.inventory.Inventory;
 import org.geysermc.geyser.inventory.InventoryHolder;
 import org.geysermc.geyser.inventory.LecternContainer;
@@ -236,6 +237,7 @@ import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.Serverbound
 import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.ServerboundChatPacket;
 import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundPlayerAbilitiesPacket;
 import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundPlayerActionPacket;
+import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundSetCarriedItemPacket;
 import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundUseItemPacket;
 import org.geysermc.mcprotocollib.protocol.packet.login.serverbound.ServerboundCustomQueryAnswerPacket;
 
@@ -515,6 +517,9 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
     @Setter
     private Vector3i lastInteractionBlockPosition = Vector3i.ZERO;
 
+    @Setter
+    private int lastInteractionBlockFace = -1;
+
     /**
      * Stores the Java position of the player the last time they interacted.
      * Used to verify that the player did not move since their last interaction. <br>
@@ -619,6 +624,12 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
     @Getter
     @Setter
     private boolean inClientPredictedVehicle;
+
+    /**
+     * Store the last time the player charged a projectile (crossbow). Used to fix crossbow discharge instantly.
+     */
+    @Setter
+    private long lastChargedProjectilesTime;
 
     /**
      * Store the last time the player interacted. Used to fix a right-click spam bug.
@@ -1550,6 +1561,44 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
     }
 
     /**
+     * Switch the player currently selected hotbar slot.
+     */
+    public void switchHeldSlot(int slot) {
+        if (!spawned || slot < 0 || slot > 8 || playerInventoryHolder.inventory().getHeldItemSlot() == slot) {
+            // For the last condition - Don't update the slot if the slot is the same - not Java Edition behavior and messes with plugins such as Grief Prevention
+            return;
+        }
+
+        // Send book update before switching hotbar slot
+        bookEditCache.checkForSend();
+
+        GeyserItemStack oldItem = playerInventoryHolder.inventory().getItemInHand();
+        playerInventoryHolder.inventory().setHeldItemSlot(slot);
+
+        ServerboundSetCarriedItemPacket setCarriedItemPacket = new ServerboundSetCarriedItemPacket(slot);
+        sendDownstreamGamePacket(setCarriedItemPacket);
+
+        GeyserItemStack newItem = playerInventoryHolder.inventory().getItemInHand();
+
+        if (sneaking && newItem.is(Items.SHIELD)) {
+            // Activate shield since we are already sneaking
+            // (No need to send a release item packet - Java doesn't do this when swapping items)
+            // Required to do it a tick later or else it doesn't register
+            scheduleInEventLoop(() -> useItem(Hand.MAIN_HAND), nanosecondsPerTick, TimeUnit.NANOSECONDS);
+        }
+
+        if (!oldItem.isSameItem(newItem)) {
+            // Java sends a cooldown indicator whenever you switch to a new item type
+            CooldownUtils.setCooldownHitTime(this);
+        }
+
+        // Update the interactive tag, if an entity is present
+        if (mouseoverEntity != null) {
+            mouseoverEntity.updateInteractiveTag();
+        }
+    }
+
+    /**
      * Same as useItem but always default to useTouchRotation false.
      */
     public void useItem(Hand hand) {
@@ -1561,6 +1610,17 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
      */
     public void useItem(Hand hand, boolean useTouchRotation) {
         if (playerEntity.getFlag(EntityFlag.USING_ITEM)) {
+            return;
+        }
+
+        // We don't want the crossbow to discharge instantly since the player is still holding down right click,
+        // so let's add a little bit of grace period before they can actually use the crossbow. This should be a short enough time
+        // so that they can actually discharge quickly but won't discharge if they don't want to.
+        if (hand == Hand.MAIN_HAND && System.currentTimeMillis() - lastChargedProjectilesTime < 450L) {
+            lastChargedProjectilesTime = 0;
+
+            // The client likes to cycle the crossbow here, so we need to update the crossbow item again.
+            playerInventoryHolder.updateSlot(playerInventoryHolder.inventory().getOffsetForHotbar(playerInventoryHolder.inventory().getHeldItemSlot()));
             return;
         }
 
@@ -1584,24 +1644,28 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
      * Checks to see if a shield is in either hand to activate blocking. If so, it sets the Bedrock client to display
      * blocking and sends a packet to the Java server.
      */
-    private boolean attemptToBlock() {
+    public boolean attemptToBlock() {
         // Don't try to block while in scaffolding
         if (playerEntity.isInsideScaffolding()) {
             return false;
         }
 
-        if (playerInventoryHolder.inventory().getItemInHand().is(Items.SHIELD)) {
+        final GeyserItemStack mainHandItem = playerInventoryHolder.inventory().getItemInHand();
+        final GeyserItemStack offhandItem = playerInventoryHolder.inventory().getOffhand();
+
+        if (mainHandItem.is(Items.SHIELD) && !worldCache.hasCooldown(mainHandItem)) {
             useItem(Hand.MAIN_HAND);
-        } else if (playerInventoryHolder.inventory().getOffhand().is(Items.SHIELD)) {
-            useItem(Hand.OFF_HAND);
-        } else {
-            // No blocking
-            return false;
+            playerEntity.setFlag(EntityFlag.BLOCKING, true);
+            return true;
         }
 
-        playerEntity.setFlag(EntityFlag.BLOCKING, true);
-        // Metadata should be updated later
-        return true;
+        if (offhandItem.is(Items.SHIELD) && !worldCache.hasCooldown(offhandItem)) {
+            useItem(Hand.OFF_HAND);
+            playerEntity.setFlag(EntityFlag.BLOCKING, true);
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -1920,7 +1984,7 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
         this.upstream.getCodecHelper().setBlockDefinitions(this.blockMappings);
         this.upstream.getCodecHelper().setCameraPresetDefinitions(CameraDefinitions.CAMERA_DEFINITIONS);
 
-        if (GameProtocol.is1_26_20orHigher(protocolVersion())) {
+        if (GameProtocol.is26_20orHigher(protocolVersion())) {
             VoxelShapesPacket voxelShapesPacket = new VoxelShapesPacket();
             voxelShapesPacket.setNameMap(new HashMap<>());
             voxelShapesPacket.setShapes(new ArrayList<>());
