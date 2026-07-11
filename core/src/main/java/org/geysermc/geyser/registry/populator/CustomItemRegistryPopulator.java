@@ -61,8 +61,8 @@ import org.geysermc.geyser.item.custom.GeyserCustomItemBedrockOptions;
 import org.geysermc.geyser.item.custom.GeyserCustomItemDefinition;
 import org.geysermc.geyser.item.exception.InvalidItemComponentsException;
 import org.geysermc.geyser.item.type.Item;
-import org.geysermc.geyser.item.type.NonVanillaItem;
 import org.geysermc.geyser.registry.mappings.MappingsConfigReader;
+import org.geysermc.geyser.registry.mappings.MappingsType;
 import org.geysermc.geyser.registry.populator.custom.CustomItemContext;
 import org.geysermc.geyser.registry.type.GeyserMappingItem;
 import org.geysermc.geyser.registry.type.ItemMapping;
@@ -74,6 +74,7 @@ import org.geysermc.mcprotocollib.protocol.data.game.item.component.DataComponen
 import org.geysermc.mcprotocollib.protocol.data.game.item.component.DataComponents;
 import org.geysermc.mcprotocollib.protocol.data.game.item.component.Equippable;
 import org.geysermc.mcprotocollib.protocol.data.game.item.component.FoodProperties;
+import org.geysermc.mcprotocollib.protocol.data.game.item.component.HolderSet;
 import org.geysermc.mcprotocollib.protocol.data.game.item.component.KineticWeapon;
 import org.geysermc.mcprotocollib.protocol.data.game.item.component.PiercingWeapon;
 import org.geysermc.mcprotocollib.protocol.data.game.item.component.SwingAnimation;
@@ -110,9 +111,12 @@ public class CustomItemRegistryPopulator {
 
     public static void populate(Map<String, GeyserMappingItem> items, Multimap<Identifier, CustomItemDefinition> customItems,
                                 Multimap<Identifier, NonVanillaCustomItemDefinition> nonVanillaCustomItems) {
-        MappingsConfigReader mappingsConfigReader = new MappingsConfigReader();
+        if (!GeyserImpl.getInstance().config().gameplay().enableCustomContent()) {
+            return;
+        }
+
         // Load custom items from mappings files
-        mappingsConfigReader.loadItemMappingsFromJson((identifier, item) -> {
+        MappingsConfigReader.loadCustomMappingsFromJson(MappingsType.ITEMS, (identifier, item) -> {
             try {
                 validateVanillaOverride(identifier, item, customItems, items);
                 customItems.get(identifier).add(item);
@@ -175,7 +179,9 @@ public class CustomItemRegistryPopulator {
         String bedrockIdentifier = customItem.bedrockIdentifier().toString();
         NbtMapBuilder bedrockComponents = createComponentNbt(MinecraftKey.identifierToKey(customItem.identifier()), context);
 
-        Item javaItem = new NonVanillaItem(customItem.identifier().toString(), Item.builder().components(context.components()), context.resolvableComponents());
+        Item javaItem = new Item(customItem.identifier().toString(), Item.builder()
+            .components(context.components())
+            .resolvableComponents(context.resolvableComponents()));
         Items.register(javaItem, customItem.javaId());
 
         ItemMapping customMapping = ItemMapping.builder()
@@ -266,10 +272,9 @@ public class CustomItemRegistryPopulator {
         boolean canDestroyInCreative = toolData == null || toolData.isCanDestroyBlocksInCreative();
         computeCreativeDestroyProperties(canDestroyInCreative, itemProperties, componentBuilder);
 
-        // Using API component here because MCPL one is just an ID holder set, and we can't get identifiers from that
-        JavaRepairable repairable = context.definition().components().get(JavaItemDataComponents.REPAIRABLE);
+        HolderSet repairable = context.components().get(DataComponentTypes.REPAIRABLE);
         if (repairable != null) {
-            computeRepairableProperties(repairable, componentBuilder);
+            computeRepairableProperties(componentBuilder);
         }
 
         Equippable equippable = context.components().get(DataComponentTypes.EQUIPPABLE);
@@ -444,12 +449,12 @@ public class CustomItemRegistryPopulator {
         componentBuilder.putCompound("minecraft:display_name", NbtMap.builder().putString("value", definition.displayName()).build());
 
         // Add a Geyser tag to the item, allowing Molang queries
-        addItemTag(componentBuilder, Identifier.of("geyser:is_custom"));
+        addItemTag(componentBuilder, "geyser:is_custom");
 
         // Add other defined tags to the item
         Set<Identifier> tags = options.tags();
         for (Identifier tag : tags) {
-            addItemTag(componentBuilder, tag);
+            addItemTag(componentBuilder, tag.toString());
         }
 
         itemProperties.putBoolean("allow_off_hand", options.allowOffhand());
@@ -515,23 +520,14 @@ public class CustomItemRegistryPopulator {
             .build());
     }
 
-    /**
-     * This method passes the Java identifiers straight to bedrock - which isn't perfect. Also doesn't work with holder sets that use a tag.
-     */
-    private static void computeRepairableProperties(JavaRepairable repairable, NbtMapBuilder componentBuilder) {
-        List<Identifier> identifiers = ((HoldersImpl) repairable.items()).identifiers();
-        if (identifiers == null) {
-            return;
-        }
-        List<NbtMap> items = identifiers.stream()
-            .map(identifier -> NbtMap.builder()
-                .putString("name", identifier.toString())
-                .build()).toList();
-
+    private static void computeRepairableProperties(NbtMapBuilder componentBuilder) {
+        // TODO: only allow repair by the same Java item (not Bedrock item) and repair materials (needs mapping item tags).
         componentBuilder.putCompound("minecraft:repairable", NbtMap.builder()
             .putList("repair_items", NbtType.COMPOUND, NbtMap.builder()
-                .putList("items", NbtType.COMPOUND, items)
-                .putFloat("repair_amount", 0.0F)
+                .putList("items", NbtType.COMPOUND, NbtMap.builder()
+                    .putString("tags", "1")
+                    .build())
+                .putFloat("repair_amount", 1.0F)
                 .build())
             .build());
     }
@@ -744,15 +740,15 @@ public class CustomItemRegistryPopulator {
     }
 
     @SuppressWarnings("unchecked")
-    private static void addItemTag(NbtMapBuilder builder, Identifier tag) {
+    private static void addItemTag(NbtMapBuilder builder, String tag) {
         List<String> tagList = (List<String>) builder.get("item_tags");
         if (tagList == null) {
-            builder.putList("item_tags", NbtType.STRING, tag.toString());
+            builder.putList("item_tags", NbtType.STRING, tag);
         } else {
             // NbtList is immutable
-            if (!tagList.contains(tag.toString())) {
+            if (!tagList.contains(tag)) {
                 tagList = new ArrayList<>(tagList);
-                tagList.add(tag.toString());
+                tagList.add(tag);
                 builder.putList("item_tags", NbtType.STRING, tagList);
             }
         }

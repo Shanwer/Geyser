@@ -51,7 +51,6 @@ import net.raphimc.minecraftauth.java.exception.MinecraftProfileNotFoundExceptio
 import net.raphimc.minecraftauth.java.model.MinecraftProfile;
 import net.raphimc.minecraftauth.java.model.MinecraftToken;
 import net.raphimc.minecraftauth.util.MinecraftAuth4To5Migrator;
-import org.checkerframework.checker.index.qual.NonNegative;
 import org.checkerframework.checker.index.qual.Positive;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -122,7 +121,6 @@ import org.geysermc.geyser.api.bedrock.camera.CameraData;
 import org.geysermc.geyser.api.bedrock.camera.CameraShake;
 import org.geysermc.geyser.api.connection.GeyserConnection;
 import org.geysermc.geyser.api.entity.EntityData;
-import org.geysermc.geyser.api.entity.type.GeyserEntity;
 import org.geysermc.geyser.api.entity.type.player.GeyserPlayerEntity;
 import org.geysermc.geyser.api.event.bedrock.SessionDisconnectEvent;
 import org.geysermc.geyser.api.event.bedrock.SessionLoginEvent;
@@ -132,8 +130,9 @@ import org.geysermc.geyser.api.util.PlatformType;
 import org.geysermc.geyser.command.CommandRegistry;
 import org.geysermc.geyser.command.GeyserCommandSource;
 import org.geysermc.geyser.configuration.GeyserConfig;
-import org.geysermc.geyser.entity.EntityDefinitions;
+import org.geysermc.geyser.entity.EntitySpectateHelper;
 import org.geysermc.geyser.entity.GeyserEntityData;
+import org.geysermc.geyser.entity.VanillaEntities;
 import org.geysermc.geyser.entity.attribute.GeyserAttributeType;
 import org.geysermc.geyser.entity.type.BoatEntity;
 import org.geysermc.geyser.entity.type.Entity;
@@ -157,6 +156,7 @@ import org.geysermc.geyser.inventory.PlayerInventory;
 import org.geysermc.geyser.inventory.recipe.GeyserRecipe;
 import org.geysermc.geyser.inventory.recipe.GeyserSmithingRecipe;
 import org.geysermc.geyser.inventory.recipe.GeyserStonecutterData;
+import org.geysermc.geyser.inventory.recipe.TrimRecipes;
 import org.geysermc.geyser.item.Items;
 import org.geysermc.geyser.item.type.BlockItem;
 import org.geysermc.geyser.level.BedrockDimension;
@@ -249,6 +249,7 @@ import java.util.BitSet;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -325,6 +326,12 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
 
     @Setter
     private TeleportCache unconfirmedTeleport;
+
+    @Setter
+    private @Nullable Entity spectatedEntity;
+
+    @Setter
+    private EntitySpectateHelper.SpectateMode spectateMode = EntitySpectateHelper.SpectateMode.FIRST_PERSON;
 
     private final WorldBorder worldBorder;
     /**
@@ -558,6 +565,7 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
     @Setter
     private Int2ObjectMap<GeyserStonecutterData> stonecutterRecipes = Int2ObjectMaps.emptyMap();
     private final List<GeyserSmithingRecipe> smithingRecipes = new ArrayList<>();
+    private final TrimRecipes trimRecipes = new TrimRecipes();
 
     /**
      * Whether to work around 1.13's different behavior in villager trading menus.
@@ -1412,12 +1420,20 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
                 clientVehicle.getVehicleComponent().tickVehicle();
             }
 
+            for (Iterator<Entity> it = entityCache.getDirtyEntities().iterator(); it.hasNext(); ) {
+                it.next().updateBedrockMetadata();
+                it.remove();
+            }
+
             for (Tickable entity : entityCache.getTickableEntities()) {
                 entity.drawTick();
                 if (gameShouldUpdate) {
                     entity.tick();
                 }
             }
+
+            // Keep the spectator camera tracking its target
+            EntitySpectateHelper.tick(this);
 
             if (armAnimationTicks >= 0) {
                 // As of 1.18.2 Java Edition, it appears that the swing time is dynamically updated depending on the
@@ -2084,8 +2100,6 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
         // It does *not* mean we can dictate the break speed server-sided :(
         startGamePacket.setServerAuthoritativeBlockBreaking(true);
 
-        startGamePacket.setServerConfigurationJoinInfo(null);
-
         return startGamePacket;
     }
 
@@ -2484,7 +2498,7 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
                  FALL_FLYING, // Elytra
                  SPIN_ATTACK -> 0.4f; // Trident spin attack
             case SLEEPING -> 0.2f;
-            default -> EntityDefinitions.PLAYER.offset(); // 1.62F
+            default -> VanillaEntities.PLAYER_ENTITY_OFFSET; // 1.62F
         };
     }
 
@@ -2627,11 +2641,6 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
         transferPacket.setPort(port);
         sendUpstreamPacket(transferPacket);
         return true;
-    }
-
-    @Override
-    public @NonNull CompletableFuture<@Nullable GeyserEntity> entityByJavaId(@NonNegative int javaId) {
-        return entities().entityByJavaId(javaId);
     }
 
     @Override
