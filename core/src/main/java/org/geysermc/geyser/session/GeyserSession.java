@@ -268,6 +268,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 @Getter
 public class GeyserSession implements GeyserConnection, GeyserCommandSource {
+    private static final String UNKNOWN_LOG_NAME = "This account";
 
     private final GeyserImpl geyser;
     private final UpstreamSession upstream;
@@ -1080,7 +1081,7 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
     }
     public void authenticateWithAuthChain(String authChain) {
         if (loggedIn) {
-            geyser.getLogger().severe(GeyserLocale.getLocaleStringLog("geyser.auth.already_loggedin", getAuthData().name()));
+            geyser.getLogger().severe(GeyserLocale.getLocaleStringLog("geyser.auth.already_loggedin", getAuthData() == null ? UNKNOWN_LOG_NAME : getAuthData().name()));
             return;
         }
 
@@ -1139,7 +1140,7 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
      */
     public void authenticateWithMicrosoftCode(boolean offlineAccess) {
         if (loggedIn) {
-            geyser.getLogger().severe(GeyserLocale.getLocaleStringLog("geyser.auth.already_loggedin", getAuthData().name()));
+            geyser.getLogger().severe(GeyserLocale.getLocaleStringLog("geyser.auth.already_loggedin", getAuthData() == null ? UNKNOWN_LOG_NAME : getAuthData().name()));
             return;
         }
 
