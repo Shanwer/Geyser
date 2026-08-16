@@ -43,6 +43,7 @@ import org.geysermc.cumulus.response.result.FormResponseResult;
 import org.geysermc.cumulus.response.result.ValidFormResponseResult;
 import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.configuration.GeyserConfig;
+import org.geysermc.geyser.network.CodecProcessor;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.session.auth.AuthData;
 import org.geysermc.geyser.session.auth.BedrockClientData;
@@ -118,6 +119,9 @@ public class LoginEncryptionUtils {
             }
             session.setAuthData(new AuthData(extraData.displayName, extraData.identity, xuid, issuedAt, extraData.minecraftId));
 
+            // Thanks 26.44, we love protocol bumps without protocol version bumps
+            CodecProcessor.updateCodec(session.getUpstream(), data.getGameVersion());
+
             try {
                 startEncryptionHandshake(session, identityPublicKey);
             } catch (Throwable e) {
@@ -185,8 +189,6 @@ public class LoginEncryptionUtils {
                                 session.authenticateWithMicrosoftCode();
                                 return;
                             }
-
-
 
                             session.disconnect(GeyserLocale.getPlayerLocaleString("geyser.auth.login.form.disconnect", session.locale()));
                         }));
