@@ -28,6 +28,13 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }} # 当 sync with upstream 执行成功时自动执行，或在每次 push 触发与手动触发时执行
     steps:
+
+      - uses: actions/checkout@v4
+
+      - uses: runsascoded/update-submodules@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+    
       - name: Get Release Info
         id: release-info
         uses: GeyserMC/actions/previous-release@master
