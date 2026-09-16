@@ -34,6 +34,8 @@ dependencies {
     shadow(libs.mcauthlib)
     shadow(libs.minecraftauth)
     shadow(libs.raknet)
+    shadowBundle(libs.nethernet.transport)
+    shadowBundle(libs.nethernet.signaling)
     shadow(libs.mcprotocollib)
 
     // Shade + relocate configurate as we're using a fork
