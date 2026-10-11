@@ -28,15 +28,17 @@ dependencies {
 
     // These are NOT transitively included, and instead shadowed (+ relocated, if not under the org.geyser namespace).
     // Avoids fabric complaining about non-SemVer versioning
-    shadow(libs.protocol.connection)
-    shadow(libs.protocol.common)
-    shadow(libs.protocol.codec)
+    shadowBundle(libs.protocol.connection)
+    shadowBundle(libs.protocol.common)
+    shadowBundle(libs.protocol.codec)
     shadow(libs.mcauthlib)
     shadow(libs.minecraftauth)
-    shadow(libs.raknet)
+    // Shared by raknet and nethernet, so it must be relocated along with them
+    shadowBundle(libs.netty.transport.common)
+    shadowBundle(libs.raknet)
     shadowBundle(libs.nethernet.transport)
     shadowBundle(libs.nethernet.signaling)
-    shadow(libs.mcprotocollib)
+    shadowBundle(libs.mcprotocollib)
 
     // Shade + relocate configurate as we're using a fork
     shadowBundle(libs.configurate.`interface`)
